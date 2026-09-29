@@ -1,0 +1,18 @@
+version: "0.7.4"
+description: ESP-Brookesia ACOS realtime agent
+url: https://github.com/espressif/esp-brookesia
+dependencies:
+  espressif/brookesia_mcp_utils:
+    version: "0.7.*"
+    override_path: "../../utils/brookesia_mcp_utils"
+    require: public
+  espressif/brookesia_agent_manager:
+    version: "0.7.*"
+    override_path: "../brookesia_agent_manager"
+    require: public
+  espressif/esp_websocket_client:
+    version: "1.*"
+    require: private
+examples:
+  - path: ../../examples/service/console
+  - path: ../../examples/agent/chatbot
