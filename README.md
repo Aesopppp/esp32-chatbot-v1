@@ -17,12 +17,15 @@ Use ESP-IDF v5.5.5 and select ESP-VoCat v1.2. In an ESP-IDF PowerShell terminal:
 ```powershell
 cd D:\esp32_chatbot_v1.0\examples\agent\chatbot
 idf.py set-target esp32s3
+idf.py gen-bmgr-config -b esp_vocat_board_v1_2
 idf.py menuconfig
 idf.py build
 idf.py -p COM6 flash monitor
 ```
 
-The ESP32-S3 defaults select the VoCat v1.2 board, 16 MB flash, octal PSRAM,
+The board-generation command creates local source files under `components/gen_bmgr_codes`
+and may move aside `sdkconfig`; configure the ACOS token afterward. The ESP32-S3
+defaults select the VoCat v1.2 board, 16 MB flash, octal PSRAM,
 and the Hi ESP wake model. In `menuconfig`, set the ACOS token under
 `ESP-Brookesia: Agent Xiaozhi Configurations`. The generated `sdkconfig` is
 local and ignored by Git; never commit or share it. Wi-Fi credentials are

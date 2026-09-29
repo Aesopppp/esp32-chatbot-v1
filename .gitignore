@@ -53,6 +53,7 @@ flake8_output.txt
 
 # esp-idf default build directory name
 build
+build_verify/
 _build
 build_esp*/
 build_linux*/
