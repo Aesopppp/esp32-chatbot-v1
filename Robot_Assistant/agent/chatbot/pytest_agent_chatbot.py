@@ -21,7 +21,7 @@ Steps to run these test cases:
 
    **Build for a specific board:** (replace `esp32p4` and `esp32_p4x_function_ev` with your target chip and board name)
    ```bash
-   python .gitlab/tools/build_apps.py examples/agent/chatbot -t esp32p4 --config "sdkconfig.ci.board.esp32_p4x_function_ev=esp32_p4x_function_ev"
+   python .gitlab/tools/build_apps.py Robot_Assistant/agent/chatbot -t esp32p4 --config "sdkconfig.ci.board.esp32_p4x_function_ev=esp32_p4x_function_ev"
    ```
 
 ## Test
@@ -36,7 +36,7 @@ Steps to run these test cases:
 
    **esp32p4x_function_ev_board examples:**
    ```bash
-   pytest examples/agent/chatbot --target esp32p4 --env esp32p4x_function_ev_board
+   pytest Robot_Assistant/agent/chatbot --target esp32p4 --env esp32p4x_function_ev_board
    ```
 '''
 

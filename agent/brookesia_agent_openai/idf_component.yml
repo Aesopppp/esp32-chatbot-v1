@@ -20,5 +20,5 @@ dependencies:
     require: public
 
 examples:
-  - path: ../../examples/service/console
-  - path: ../../examples/agent/chatbot
+  - path: ../../Robot_Assistant/service/console
+  - path: ../../Robot_Assistant/agent/chatbot

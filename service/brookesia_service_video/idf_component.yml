@@ -14,4 +14,4 @@ dependencies:
     require: public
 
 examples:
-  - path: ../../examples/service/console
+  - path: ../../Robot_Assistant/service/console

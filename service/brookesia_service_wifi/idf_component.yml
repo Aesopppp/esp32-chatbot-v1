@@ -21,6 +21,6 @@ dependencies:
     require: public
 
 examples:
-  - path: ../../examples/agent/chatbot
-  - path: ../../examples/service/console
-  - path: ../../examples/service/wifi
+  - path: ../../Robot_Assistant/agent/chatbot
+  - path: ../../Robot_Assistant/service/console
+  - path: ../../Robot_Assistant/service/wifi

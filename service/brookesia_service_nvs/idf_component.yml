@@ -10,5 +10,5 @@ dependencies:
     require: public
 
 examples:
-  - path: ../../examples/service/console
-  - path: ../../examples/service/nvs
+  - path: ../../Robot_Assistant/service/console
+  - path: ../../Robot_Assistant/service/nvs

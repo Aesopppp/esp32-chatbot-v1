@@ -18,6 +18,6 @@ dependencies:
     require: no
 
 examples:
-  - path: ../../examples/agent/chatbot
-  - path: ../../examples/service/audio
-  - path: ../../examples/service/console
+  - path: ../../Robot_Assistant/agent/chatbot
+  - path: ../../Robot_Assistant/service/audio
+  - path: ../../Robot_Assistant/service/console
