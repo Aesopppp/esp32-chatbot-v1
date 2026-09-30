@@ -17,11 +17,14 @@ using NVSHelper = esp_brookesia::service::helper::NVS;
 using WifiHelper = esp_brookesia::service::helper::Wifi;
 using DeviceHelper = esp_brookesia::service::helper::Device;
 
+// 唤醒词模型位于自定义分区 model 中，语言配置 cn 交给 ESP-SR 使用。
 constexpr const char *AUDIO_WAKEUP_WORD_MODEL_PARTITION_LABEL = "model";
 constexpr const char *AUDIO_WAKEUP_WORD_MN_LANGUAGE = "cn";
 
 bool GeneralServices::init(std::shared_ptr<esp_brookesia::lib_utils::TaskScheduler> task_scheduler)
 {
+    // ServiceManager 只初始化一次。后续各模块通过 helper 绑定服务，
+    // 不直接持有底层驱动对象。
     BROOKESIA_CHECK_NULL_RETURN(task_scheduler, false, "Task scheduler is not available");
 
     if (is_initialized()) {
@@ -44,6 +47,8 @@ bool GeneralServices::init(std::shared_ptr<esp_brookesia::lib_utils::TaskSchedul
 
 void GeneralServices::init_audio()
 {
+    // 配置播放器、编码器和解码器的任务参数。音频服务随后会使用 AI
+    // Agent 设置的 AFE 配置启动唤醒词和录音链路。
     BROOKESIA_CHECK_FALSE_EXIT(is_initialized(), "General services is not initialized");
 
     if (!AudioHelper::is_available()) {
@@ -92,6 +97,7 @@ void GeneralServices::init_audio()
 
 void GeneralServices::start_sntp()
 {
+    // SNTP 只需要建立服务绑定；真正的时间同步由服务在联网后执行。
     BROOKESIA_CHECK_FALSE_EXIT(is_initialized(), "General services is not initialized");
 
     if (!SNTPHelper::is_available()) {
@@ -110,6 +116,7 @@ void GeneralServices::start_sntp()
 
 void GeneralServices::start_nvs()
 {
+    // NVS 保存 WiFi 凭据、音量、亮度等掉电后仍需保留的设置。
     BROOKESIA_CHECK_FALSE_EXIT(is_initialized(), "General services is not initialized");
 
     if (!NVSHelper::is_available()) {
@@ -128,6 +135,7 @@ void GeneralServices::start_nvs()
 
 void GeneralServices::start_device()
 {
+    // Device service 提供音量、静音、亮度和电源等统一控制接口。
     BROOKESIA_CHECK_FALSE_EXIT(is_initialized(), "General services is not initialized");
 
     if (!DeviceHelper::is_available()) {

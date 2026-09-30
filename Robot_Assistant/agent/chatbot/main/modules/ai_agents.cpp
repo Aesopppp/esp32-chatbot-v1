@@ -28,6 +28,10 @@ using DeviceHelper = esp_brookesia::service::helper::Device;
 constexpr const char *AUDIO_WAKEUP_WORD_MODEL_PARTITION_LABEL = "model";
 constexpr const char *AUDIO_WAKEUP_WORD_MN_LANGUAGE = "cn";
 
+// AI_Agents 是应用层的总协调器：它把音频 AFE 事件、WiFi 状态、Agent
+// 状态和表情动画连接起来。具体的 ACOS WebSocket 实现位于
+// agent/brookesia_agent_xiaozhi，不在本文件中直接处理网络数据。
+
 #if CONFIG_EXAMPLE_AGENTS_ENABLE_COZE
 extern const char coze_private_key_pem_start[] asm("_binary_private_key_pem_start");
 extern const char coze_private_key_pem_end[]   asm("_binary_private_key_pem_end");
@@ -35,6 +39,8 @@ extern const char coze_private_key_pem_end[]   asm("_binary_private_key_pem_end"
 
 bool AI_Agents::init(const Config &config)
 {
+    // 先向音频服务提交 AFE 配置。model 分区中的 ESP-SR 模型负责唤醒词，
+    // start/end timeout 决定唤醒后允许等待用户说话的时间。
     BROOKESIA_CHECK_NULL_RETURN(config.task_scheduler, false, "Task scheduler is not available");
 
     if (is_initialized()) {
@@ -83,6 +89,7 @@ bool AI_Agents::init(const Config &config)
 
 void AI_Agents::init_coze()
 {
+    // Coze 是可选 Agent。未在 menuconfig 启用时直接跳过，不影响 ACOS。
     if (!CozeHelper::is_available()) {
         BROOKESIA_LOGW("Coze agent is not available, skip initialization");
         return;
@@ -147,6 +154,7 @@ void AI_Agents::init_coze()
 
 void AI_Agents::init_openai()
 {
+    // OpenAI 同样是可选 Agent；凭据从 menuconfig 生成的 sdkconfig 读取。
     if (!OpenaiHelper::is_available()) {
         BROOKESIA_LOGW("Openai agent is not available, skip initialization");
         return;
@@ -171,6 +179,8 @@ void AI_Agents::init_openai()
 
 void AI_Agents::init_xiaozhi()
 {
+    // XiaoZhi/ACOS 是当前工程的默认实时 Agent。这里注册 MCP 工具、
+    // 事件监听和表情状态映射，然后由 Agent 自己管理 WebSocket。
     if (!XiaoZhiHelper::is_available()) {
         BROOKESIA_LOGW("XiaoZhi agent is not available, skip initialization");
         return;
@@ -283,6 +293,7 @@ void AI_Agents::init_xiaozhi()
 
 void AI_Agents::process_agent_general_unexpected_events()
 {
+    // 处理 Agent 状态机收到的异常事件，例如断线后强制停止或重新启动。
     auto general_event_happened_slot =
     [this](const std::string & event_name, const std::string & general_event, bool is_unexpected) {
         BROOKESIA_LOG_TRACE_GUARD();
@@ -363,6 +374,8 @@ void AI_Agents::process_agent_general_suspend_status_changed()
 
 bool AI_Agents::start_agent()
 {
+    // 根据当前选择的 Agent 启动会话；WiFi 尚未连接时由对应 Agent 等待
+    // 网络状态，不在这里忙等。
     // Ensure target agent is activated after switching
     auto activate_handler = [this](service::FunctionResult && result) {
         if (!result.success) {
@@ -391,6 +404,7 @@ bool AI_Agents::start_agent()
 
 void AI_Agents::stop_agent()
 {
+    // 停止当前 Agent 并释放音频/网络资源，切换 Agent 时会调用此函数。
     AgentHelper::call_function_async(
         AgentHelper::FunctionId::TriggerGeneralAction, BROOKESIA_DESCRIBE_TO_STR(AgentHelper::GeneralAction::Stop)
     );
@@ -398,6 +412,8 @@ void AI_Agents::stop_agent()
 
 void AI_Agents::process_agent_general_events()
 {
+    // 监听通用 Agent 事件，把 Awake、Sleep、Listening、Speaking 等状态
+    // 转换为界面和音频服务可以使用的动作。
     // Process unexpected general events:
     //   1. Stopped: Restart the agent after a delay
     process_agent_general_unexpected_events();
@@ -811,6 +827,7 @@ void AI_Agents::process_emote_when_emote_got()
 
 void AI_Agents::process_emote()
 {
+    // 注册表情事件处理器。表情只反映状态，不参与语音识别或网络传输。
     if (!EmoteHelper::is_available()) {
         BROOKESIA_LOGW("Emote service is not available, skip");
         return;
@@ -830,6 +847,7 @@ void AI_Agents::process_emote()
 
 void AI_Agents::process_wifi_events()
 {
+    // WiFi 连接成功后启动/恢复 Agent；断线时停止上行，避免音频数据堆积。
     auto general_action_triggered_slot =
     [this](const std::string & event_name, const std::string & general_action) {
         BROOKESIA_LOG_TRACE_GUARD();

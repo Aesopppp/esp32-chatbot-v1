@@ -72,7 +72,16 @@ if (NOT RESOLUTION IN_LIST SUPPORTED_RESOLUTIONS)
 endif()
 message(STATUS "Asset Resolution: ${RESOLUTION}")
 set(ASSETS_FILE "${CMAKE_BINARY_DIR}/${ASSETS_BIN_NAME}.bin")
-build_speaker_assets_bin(${ASSETS_BIN_NAME} ${RESOLUTION} ${ASSETS_FILE} ${CONFIG_MMAP_FILE_NAME_LENGTH})
+get_component_path("esp_emote_assets" EMOTE_ASSETS_COMPONENT_PATH)
+set(ICON_OVERRIDE "${CMAKE_CURRENT_LIST_DIR}/../assets/emoji_large/icon_speaker.bin")
+set(ASSETS_OVERRIDE_DIR "${CMAKE_BINARY_DIR}/emote_assets_override")
+file(COPY "${EMOTE_ASSETS_COMPONENT_PATH}/emoji_large/"
+    DESTINATION "${ASSETS_OVERRIDE_DIR}/emoji_large")
+configure_file("${ICON_OVERRIDE}"
+    "${ASSETS_OVERRIDE_DIR}/emoji_large/icon_speaker.bin" COPYONLY)
+build_speaker_assets_bin(${ASSETS_BIN_NAME} ${RESOLUTION} ${ASSETS_FILE}
+    ${CONFIG_MMAP_FILE_NAME_LENGTH} ${ASSETS_OVERRIDE_DIR})
+add_custom_command(OUTPUT "${ASSETS_FILE}" APPEND DEPENDS "${ICON_OVERRIDE}")
 message(STATUS "Generated emote assets: ${ASSETS_FILE} -> ${ASSETS_PARTITION_NAME} partition")
 esptool_py_flash_to_partition(flash ${ASSETS_PARTITION_NAME} "${ASSETS_FILE}")
 

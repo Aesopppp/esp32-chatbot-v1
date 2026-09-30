@@ -27,6 +27,8 @@ static bool get_wifi_softap_params(WifiHelper::SoftApParams &softap_params);
 
 bool WifiProvisioning::init(const Config &config)
 {
+    // 这里只建立 WiFi 服务绑定，不立即连接网络。连接流程放到后台
+    // 调度器中，避免阻塞系统启动和显示初始化。
     BROOKESIA_CHECK_FALSE_RETURN(!is_initialized_.load(), false, "Already initialized");
     BROOKESIA_CHECK_FALSE_RETURN(config.task_scheduler != nullptr, false, "Invalid task scheduler");
     BROOKESIA_CHECK_FALSE_RETURN(WifiHelper::is_available(), false, "WiFi service not available");
@@ -44,6 +46,7 @@ bool WifiProvisioning::init(const Config &config)
 
 bool WifiProvisioning::start()
 {
+    // 先查询 NVS 中保存的 AP 列表，再决定走 STA 自动连接还是 SoftAP 配网。
     BROOKESIA_CHECK_FALSE_RETURN(is_initialized_.load(), false, "Not initialized");
 
     auto run_connect_or_provision = [this]() {
@@ -77,6 +80,8 @@ bool WifiProvisioning::start()
 
 void WifiProvisioning::start_sta_connect_flow()
 {
+    // STA 流程监听连接和断开事件。连接失败时切换到 SoftAP，方便用户
+    // 重新输入密码，而不是让设备停留在不可操作状态。
     auto post_reset_active_conn = [this]() {
         active_conn_.reset();
     };
@@ -123,6 +128,8 @@ void WifiProvisioning::start_sta_connect_flow()
 
 void WifiProvisioning::start_softap_provision_flow()
 {
+    // SoftAP 流程由 WiFi service 提供网页和配置保存逻辑。配网成功后
+    // 停止热点，凭据会写入 NVS 并由 STA 流程自动连接。
     auto post_stop_softap_provision = [this]() {
         active_conn_.reset();
         auto stop_result = WifiHelper::call_function_sync(

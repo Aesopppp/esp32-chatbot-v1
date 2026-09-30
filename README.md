@@ -31,5 +31,8 @@ and the 你好小益 wake model. In `menuconfig`, set the ACOS token under
 local and ignored by Git; never commit or share it. Wi-Fi credentials are
 provisioned on the device and stored in NVS.
 
+核心执行流程和中文代码说明见
+[`CODE_GUIDE_CN.md`](Robot_Assistant/agent/chatbot/CODE_GUIDE_CN.md)。
+
 This project incorporates ESP-Brookesia components by Espressif. See
 [`license.txt`](license.txt) for the upstream license.

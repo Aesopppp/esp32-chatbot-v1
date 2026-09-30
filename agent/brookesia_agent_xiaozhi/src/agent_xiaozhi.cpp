@@ -17,6 +17,11 @@
 namespace esp_brookesia::agent {
 using AudioHelper = service::helper::Audio;
 
+// ACOS 实时 Agent 的传输层：负责 WebSocket 生命周期、认证、麦克风
+// Opus 上行、服务器音频下行，以及回答播放期间的语音打断。
+// 音频采集由 brookesia_service_audio 完成，本类只消费编码后的数据，
+// 避免网络操作阻塞 AFE 音频任务。
+
 namespace {
 const boost::json::object &error_details(const boost::json::object &message)
 {
@@ -35,6 +40,8 @@ bool is_inactive_cancel(const boost::json::object &message)
 
 bool XiaoZhi::on_init()
 {
+    // 初始化阶段创建上行工作线程，但不假定 WiFi 已经连接；网络连接
+    // 在后续 startup/activate 流程中建立，并允许失败后重试。
     uplink_running_ = true;
     try {
         BROOKESIA_THREAD_CONFIG_GUARD({
@@ -93,6 +100,8 @@ std::expected<std::string, std::string> XiaoZhi::function_explain_image(
 
 bool XiaoZhi::on_activate()
 {
+    // 激活 Agent 后启动 WebSocket。连接成功并收到 authenticated/ready
+    // 事件后，设备才允许上传用户语音。
     // ACOS uses a bearer-like token in the websocket auth message and has no
     // separate activation-code flow.  Activation is therefore local and fast.
     trigger_general_event(GeneralEvent::Activated);
@@ -107,6 +116,8 @@ void XiaoZhi::ws_event_handler(void *arg, esp_event_base_t, int32_t event_id, vo
 
 bool XiaoZhi::send_json(const std::string &json, unsigned generation, unsigned audio_epoch)
 {
+    // 所有 WebSocket 写操作都要检查连接代次和音频代次，防止打断或重连
+    // 后旧回答继续发送到新会话。
     std::lock_guard<std::mutex> lock(ws_send_mutex_);
     if (!ws_client_ || !ws_started_.load() || ws_stop_pending_.load()) return false;
     if (generation && generation != ws_generation_.load()) return false;
@@ -330,6 +341,8 @@ bool XiaoZhi::queue_cancel(uint32_t turn)
 
 bool XiaoZhi::interrupt_response(const char *reason, acos::ResponseFlow::Cancellation cancellation)
 {
+    // 打断顺序很关键：先停止扬声器，再发送服务器取消事件，最后清理
+    // 旧响应状态；上行队列保留句首数据，保证短句不会被截掉。
     // A newer answer may have arrived while this control task was queued.
     if (is_speaking() && playback_turn_ > cancellation.through) return true;
     ++response_epoch_;
@@ -356,6 +369,8 @@ bool XiaoZhi::interrupt_response(const char *reason, acos::ResponseFlow::Cancell
 
 void XiaoZhi::handle_ws_frame(const uint8_t *data, size_t len, uint8_t opcode, uint32_t turn)
 {
+    // 文本帧包含状态和文本事件，二进制帧通常是服务器返回的 Opus 音频。
+    // 无效或过期 turn 会被丢弃，避免旧回答污染当前会话。
     if (turn) {
         std::lock_guard<std::mutex> lock(receive_mutex_);
         if (!response_flow_.accepts(turn)) return;
@@ -427,6 +442,8 @@ void XiaoZhi::handle_ws_frame(const uint8_t *data, size_t len, uint8_t opcode, u
 }
 void XiaoZhi::handle_ws_event(int32_t event_id, esp_websocket_event_data_t *event)
 {
+    // 连接、断开和错误事件统一在这里转换为 Agent 状态；断线后由
+    // request_reconnect 安排重连，不让音频任务永久等待网络。
     switch (event_id) {
     case WEBSOCKET_EVENT_CONNECTED:
         ws_ready_.store(false);
@@ -535,6 +552,8 @@ void XiaoZhi::on_shutdown()
 }
 bool XiaoZhi::on_sleep()
 {
+    // 睡眠只结束当前 ACOS 会话，不关闭本地 AFE 唤醒词检测，因此设备
+    // 空闲后仍能通过“你好小益”重新进入对话。
     conversation_awake_.store(false);
     {
         std::lock_guard<std::mutex> lock(receive_mutex_);
@@ -553,6 +572,8 @@ bool XiaoZhi::on_sleep()
 }
 bool XiaoZhi::on_wakeup()
 {
+    // 唤醒后清除睡眠状态并打开语音上行窗口；连续对话期间的短句无需
+    // 重复唤醒，直到 AFE 空闲超时或 Agent 主动进入睡眠。
     if (!ws_ready_.load()) return false;
     // Awake must clear the Slept bit before listening can be enabled.
     trigger_general_event(GeneralEvent::Awake);
@@ -564,6 +585,8 @@ bool XiaoZhi::on_wakeup()
 }
 bool XiaoZhi::on_interrupt_speaking()
 {
+    // 本地唤醒词或连续对话逻辑最终都从这里进入统一打断流程，不能只
+    // 停止扬声器，否则服务器仍会继续推送上一轮回答。
     acos::ResponseFlow::Cancellation cancellation;
     {
         std::lock_guard<std::mutex> lock(receive_mutex_);
@@ -578,6 +601,8 @@ bool XiaoZhi::on_manual_start_listening() { set_listening(true); return true; }
 bool XiaoZhi::on_manual_stop_listening() { set_listening(false); return true; }
 bool XiaoZhi::on_encoder_data_ready(const uint8_t *data, size_t data_size)
 {
+    // 音频服务每产生一帧 Opus 数据就调用一次。这里只快速入队，实际
+    // WebSocket 发送由 uplink_worker 完成，避免阻塞音频回调。
     if (!ws_ready_.load() || !conversation_awake_.load() || !data || !data_size) return true;
     if (data_size > 2048) return false;
     {
@@ -603,6 +628,8 @@ void XiaoZhi::clear_uplink()
 
 void XiaoZhi::uplink_worker()
 {
+    // 上行线程从队列取出 Opus 帧并发送。连接断开、会话睡眠或代次变化
+    // 时立即丢弃旧帧，避免重连后把上一轮语音发给服务器。
     unsigned logged_generation = 0;
     for (;;) {
         UplinkPacket packet;

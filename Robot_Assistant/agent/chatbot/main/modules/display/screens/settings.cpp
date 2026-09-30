@@ -13,6 +13,9 @@
 #include "settings.hpp"
 
 using namespace esp_brookesia;
+
+// 设置页只负责读取服务状态、更新 LVGL 控件和提交用户修改；实际的
+// 音量、亮度、WiFi 和 Agent 操作仍由对应的 service/agent 组件完成。
 using AgentHelper = agent::helper::Manager;
 using WifiHelper = service::helper::Wifi;
 using DeviceHelper = service::helper::Device;
@@ -77,6 +80,8 @@ ScreenSettings::~ScreenSettings()
 
 bool ScreenSettings::on_enter(const std::string &from_state, const std::string &action)
 {
+    // 进入页面时刷新所有控件，确保显示的是服务中的最新值，而不是上次
+    // 离开页面时残留的 LVGL 文本。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     BROOKESIA_LOGI("Entering '%1%' from '%2%' with action '%3%'", get_name(), from_state, action);
@@ -121,6 +126,7 @@ bool ScreenSettings::on_exit(const std::string &to_state, const std::string &act
 
 bool ScreenSettings::init_wifi()
 {
+    // WiFi 设置只订阅连接状态并显示 SSID，不在 UI 线程中执行扫描或连接。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     BROOKESIA_CHECK_FALSE_RETURN(WifiHelper::is_available(), false, "Wifi helper is not available");
@@ -284,6 +290,7 @@ bool ScreenSettings::init_wifi()
 
 bool ScreenSettings::init_agent()
 {
+    // Agent 下拉框反映当前活跃 Agent；切换请求异步提交给 Agent Manager。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     lv_dropdown_clear_options(ui_SettingsDropdownAgents);
@@ -352,6 +359,7 @@ bool ScreenSettings::init_agent()
 
 bool ScreenSettings::init_brightness()
 {
+    // 亮度滑块使用百分比显示，修改后由 Device service 保存到 NVS。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     auto brightness_increase_slot = +[](lv_event_t *event) {
@@ -401,6 +409,7 @@ bool ScreenSettings::init_brightness()
 
 bool ScreenSettings::init_volume()
 {
+    // 音量滑块同样使用百分比，并通过 Device service 控制功放输出。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     auto volume_increase_slot = +[](lv_event_t *event) {
@@ -450,6 +459,7 @@ bool ScreenSettings::init_volume()
 
 bool ScreenSettings::init_reset()
 {
+    // 恢复出厂设置会清理持久化配置，通常需要重启后重新进入配网流程。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     auto clicked_slot = +[](lv_event_t *event) {

@@ -21,6 +21,10 @@
 #include "display.hpp"
 
 using namespace esp_brookesia;
+
+// Display 模块集中管理 LCD、LVGL、表情动画和触摸手势。业务模块只发送
+// 状态事件，所有 LVGL 对象的创建和修改都在 LVGL 任务中执行，以避免线程
+// 并发访问导致界面崩溃。
 using EmoteHelper = service::helper::ExpressionEmote;
 using DeviceHelper = service::helper::Device;
 
@@ -48,6 +52,8 @@ uint64_t get_current_time_ms()
 
 bool Display::start(const Config &config)
 {
+    // 启动顺序是 LVGL → 表情动画 → 手势 → 页面状态机。任一步骤失败都
+    // 会停止后续初始化并保留明确的错误日志。
     BROOKESIA_LOG_TRACE_GUARD();
 
     BROOKESIA_CHECK_NULL_RETURN(config.task_scheduler, false, "Task scheduler is null");
@@ -127,6 +133,8 @@ bool Display::start(const Config &config)
 
 bool Display::start_lvgl(int core_id)
 {
+    // 初始化显示适配器和 LVGL 任务。core_id 通常选择与 SPI LCD 兼容的
+    // 核心，具体值由 app_main 根据芯片核数传入。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     // init esp lvgl adapter
@@ -253,6 +261,8 @@ bool Display::start_lvgl(int core_id)
 
 bool Display::start_expression_emote(int core_id)
 {
+    // 表情动画根据 Agent 的 Listening、Speaking、Thinking 等事件切换，
+    // 不参与音频和网络处理。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     if (!EmoteHelper::is_available()) {
@@ -339,6 +349,7 @@ bool Display::start_expression_emote(int core_id)
 
 bool Display::start_gesture(const esp_brookesia::lib_utils::ThreadConfig &thread_config)
 {
+    // 触摸线程把按下、移动、抬起事件合成为滑动手势，再投递到页面状态机。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     if (!check_gesture_data(gesture_data_)) {
@@ -563,6 +574,7 @@ Display::GestureData Display::build_default_gesture_data(uint32_t h_res, uint32_
 
 bool Display::start_ui_state_machine()
 {
+    // 创建表情主界面和设置界面，并注册左右/边缘滑动切换动作。
     BROOKESIA_LOG_TRACE_GUARD_WITH_THIS();
 
     BROOKESIA_CHECK_EXCEPTION_RETURN(
