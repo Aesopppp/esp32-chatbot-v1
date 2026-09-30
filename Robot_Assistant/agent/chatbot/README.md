@@ -90,7 +90,7 @@ When the device powers on, it checks whether Wi-Fi credentials have already been
 
 ### Voice Interaction
 
-Once the AI agent starts, you can begin talking to it. The default configuration is half-duplex mode, that is, the Agent will not listen to human voice when speaking, but can be interrupted by the wake word (default: `"Hi,ESP"`) to start listening to human voice.
+Once the AI agent starts, you can begin talking to it. The default configuration is half-duplex mode, that is, the Agent will not listen to human voice when speaking, but can be interrupted by the wake word (default: `"你好小益"`) to start listening to human voice.
 
 While the Agent is responding, the screen shows matching expression animations. After the conversation ends, the device automatically returns to the standby state.
 
@@ -107,7 +107,7 @@ During conversations, the XiaoZhi agent can proactively call MCP tools to operat
 - "Get battery level"
 - "Get supported file systems"
 
-If no human voice is detected for a period of time, the AI agent automatically enters sleep mode. At that point, say the wake word (default: `"Hi,ESP"`) to start a conversation again.
+If no human voice is detected for a period of time, the AI agent automatically enters sleep mode. At that point, say the wake word (default: `"你好小益"`) to start a conversation again.
 
 ### Settings Screen
 

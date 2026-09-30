@@ -389,7 +389,7 @@ void XiaoZhi::handle_ws_frame(const uint8_t *data, size_t len, uint8_t opcode, u
             conversation_awake_.store(false);
             trigger_general_event(GeneralEvent::Started);
             trigger_general_event(GeneralEvent::Slept);
-            BROOKESIA_LOGI("ACOS ready; waiting for local wake word (Hi ESP)");
+            BROOKESIA_LOGI("ACOS ready; waiting for local wake word (你好小益)");
         } else if (type == "error") {
             const auto &details = error_details(obj);
             std::string code;
